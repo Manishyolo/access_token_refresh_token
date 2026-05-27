@@ -1,5 +1,6 @@
 const userModel = require("../models/userModel.js");
 const {generateAccessToken,generateRefreshToken} = require("../utils/genrateTokens.js");
+const jwt = require("jsonwebtoken");
 
 const bcrypt = require("bcrypt");
 
@@ -28,6 +29,8 @@ const RegisterService = async(userData)=>{
                 const accessToken = generateAccessToken(newUser._id);
                 const refreshToken = generateRefreshToken(newUser._id);
 
+            newUser.refreshToken = refreshToken;
+            await newUser.save();
 
            return {accessToken,refreshToken,newUser};
 
@@ -58,6 +61,9 @@ const LoginService = async (userData)=>{
 
          const accessToken = generateAccessToken(existingUser._id);
          const refreshToken = generateRefreshToken(existingUser._id);
+          
+            existingUser.refreshToken = refreshToken;
+            await existingUser.save();
 
          return {accessToken,refreshToken,user:existingUser};
 
@@ -70,4 +76,24 @@ const LoginService = async (userData)=>{
 
 }
 
-module.exports = {RegisterService,LoginService};
+const getAccessTokenService = async (refreshToken)=>{
+    try{
+        const decoded = jwt.verify(refreshToken,process.env.REFRESH_TOKEN_SECRET);
+
+        if(!decoded) throw new Error("unauthorized access");
+
+        const user = await userModel.findById(decoded.id);
+
+        if(refreshToken !== user.refreshToken) throw new Error("Unauthorized access");
+
+        const accessToken = generateAccessToken(user._id);
+
+        return accessToken;
+    }
+    catch(err){
+
+
+    }
+}
+
+module.exports = {RegisterService,LoginService,getAccessTokenService};
